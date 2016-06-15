@@ -4,8 +4,10 @@ module NestedAttributeReassignable
   class Helper
     def self.symbolize_keys!(attributes)
       if attributes.is_a?(Array)
+        return unless attributes[0].respond_to?(:symbolize_keys!)
         attributes.each { |a| a.symbolize_keys! }
       else
+        return unless attributes.respond_to?(:symbolize_keys!)
         attributes.symbolize_keys!
       end
     end
@@ -23,16 +25,15 @@ module NestedAttributeReassignable
     def self.reflection(klass, association_name)
       klass.reflect_on_association(association_name)
     end
-
-    def self.has_one?(klass, association_name)
-      reflection(klass, association_name).is_a?(ActiveRecord::Reflection::HasOneReflection)
-    end
   end
 
   def self.included(klass)
     klass.extend ClassMethods
   end
 
+  # Yes, this could use refactoring love, I do not
+  # have time right now D:
+  # Just go by the tests.
   module ClassMethods
     def reassignable_nested_attributes_for(name, *args)
       accepts_nested_attributes_for(name, *args)
@@ -41,17 +42,29 @@ module NestedAttributeReassignable
         Helper.symbolize_keys!(attributes)
 
         if attributes.is_a?(Array)
-          children = Helper.children_for(self.class, name, attributes.map { |a| a[:id] })
+          id_attribute_sets = attributes.select { |a| a.has_key?(:id) }
+          children = Helper.children_for(self.class, name, attributes.map { |a| a[:id] }).to_a
+          id_attribute_sets.each do |id_attributes|
+            child = children.find { |c| c.id == id_attributes[:id] }
+            nested_attributes = id_attributes.select { |k,v| k.to_s.include?('_attributes') }
+            nested_attributes.each_pair do |key, val|
+              child.send("#{key}=", val)
+            end
+          end
           self.send("#{name}=", (self.send(name) | children))
-          attributes = attributes.select { |a| !a.has_key?(:id) }
-          super(attributes)
+
+          non_id_attribute_sets = attributes.reject { |a| a.has_key?(:id) }
+          non_id_attribute_sets.each do |non_id_attributes|
+            self.send(name).build(non_id_attributes)
+          end
         else
           if attributes[:id]
-            if Helper.has_one?(self.class, name)
-              record = Helper.children_for(self.class, name, attributes[:id])
-              self.send("#{name}=", record)
-            else
-              self.send("#{name}_id=", attributes[:id])
+            record = Helper.children_for(self.class, name, attributes[:id])
+            self.send("#{name}=", record)
+
+            attributes = attributes.select { |k,v| k.to_s.include?('_attributes') }.dup
+            attributes.each_pair do |att, val|
+              self.send(name).send("#{att}=", val)
             end
           else
             super(attributes)

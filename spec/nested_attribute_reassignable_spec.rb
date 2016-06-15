@@ -1,5 +1,7 @@
 require 'spec_helper'
 
+#ActiveRecord::Base.logger = Logger.new(STDOUT)
+
 describe NestedAttributeReassignable do
   context 'when belongs_to' do
     context 'when passing id only' do
@@ -25,6 +27,23 @@ describe NestedAttributeReassignable do
         expect(family.id).to eq(family.id)
         expect(family.name).to eq('Jetson')
       end
+
+      context 'when the attributes are for another association' do
+        it 'should still assign that association' do
+          family = Family.create!(name: 'Jetson')
+          p = Person.create!(family_attributes: {
+            id: family.id,
+            name: 'Partridge',
+            sigil_attributes: {
+              name: 'tree'
+            }
+          })
+          family = p.reload.family
+          expect(family.id).to eq(family.id)
+          expect(family.name).to eq('Jetson')
+          expect(family.sigil.name).to eq('tree')
+        end
+      end
     end
   end
 
@@ -44,6 +63,25 @@ describe NestedAttributeReassignable do
         created = p.reload.pets.first
         expect(created.id).to eq(pet.id)
         expect(created.name).to eq('original')
+      end
+
+      context 'and the attributes are for another association' do
+        it 'should still handle the other association' do
+          pet = Pet.create!(name: 'original')
+          p = Person.create!(pets_attributes: [
+            {
+              id: pet.id,
+              name: 'newname',
+              toys_attributes: [
+                { name: 'ball' }
+              ]
+            }
+          ])
+          created = p.reload.pets.first
+          expect(created.id).to eq(pet.id)
+          expect(created.name).to eq('original')
+          expect(created.toys.first.name).to eq('ball')
+        end
       end
     end
 

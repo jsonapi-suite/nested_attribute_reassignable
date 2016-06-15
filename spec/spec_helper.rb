@@ -23,7 +23,12 @@ ActiveRecord::Migration.verbose = false
 ActiveRecord::Base.establish_connection(:adapter => "sqlite3", :database => ":memory:")
 
 ActiveRecord::Schema.define(:version => 1) do
+  create_table :sigils do |t|
+    t.string :name
+  end
+
   create_table :families do |t|
+    t.belongs_to :sigil
     t.string :name
   end
 
@@ -34,6 +39,11 @@ ActiveRecord::Schema.define(:version => 1) do
 
   create_table :pets do |t|
     t.belongs_to :person, index: true
+    t.string :name
+  end
+
+  create_table :toys do |t|
+    t.belongs_to :pet, index: true
     t.string :name
   end
 
@@ -60,10 +70,23 @@ end
 
 class Pet < ApplicationRecord
   belongs_to :person
+  has_many :toys
+
+  reassignable_nested_attributes_for :toys
+end
+
+class Toy < ApplicationRecord
+  belongs_to :pet
 end
 
 class Family < ApplicationRecord
   has_many :people
+  belongs_to :sigil
+  accepts_nested_attributes_for :sigil
+end
+
+class Sigil < ApplicationRecord
+  has_one :family
 end
 
 class Office < ApplicationRecord
