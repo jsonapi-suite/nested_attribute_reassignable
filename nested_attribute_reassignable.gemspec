@@ -25,7 +25,8 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency 'activerecord'
+  # TODO: change to ~> 5.0 when it comes out
+  spec.add_dependency 'activerecord', '5.0.0.beta3'
 
   spec.add_development_dependency "bundler", "~> 1.11"
   spec.add_development_dependency "rake", "~> 10.0"

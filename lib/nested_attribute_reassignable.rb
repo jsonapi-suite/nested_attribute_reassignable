@@ -45,10 +45,15 @@ module NestedAttributeReassignable
           id_attribute_sets = attributes.select { |a| a.has_key?(:id) }
           children = Helper.children_for(self.class, name, attributes.map { |a| a[:id] }).to_a
           id_attribute_sets.each do |id_attributes|
-            child = children.find { |c| c.id == id_attributes[:id] }
-            nested_attributes = id_attributes.select { |k,v| k.to_s.include?('_attributes') }
-            nested_attributes.each_pair do |key, val|
-              child.send("#{key}=", val)
+            child = children.find { |c| c.id == id_attributes[:id].to_i }
+
+            if ActiveRecord::Type::Boolean.new.cast(id_attributes[:_destroy])
+              send(name).find { |c| c.id == id_attributes[:id].to_i }.mark_for_destruction
+            else
+              nested_attributes = id_attributes.select { |k,v| k.to_s.include?('_attributes') }
+              nested_attributes.each_pair do |key, val|
+                child.send("#{key}=", val)
+              end
             end
           end
           self.send("#{name}=", (self.send(name) | children))
@@ -59,12 +64,16 @@ module NestedAttributeReassignable
           end
         else
           if attributes[:id]
-            record = Helper.children_for(self.class, name, attributes[:id])
-            self.send("#{name}=", record)
+            if ActiveRecord::Type::Boolean.new.cast(attributes[:_destroy])
+              self.send(name).mark_for_destruction
+            else
+              record = Helper.children_for(self.class, name, attributes[:id])
+              self.send("#{name}=", record)
 
-            attributes = attributes.select { |k,v| k.to_s.include?('_attributes') }.dup
-            attributes.each_pair do |att, val|
-              self.send(name).send("#{att}=", val)
+              attributes = attributes.select { |k,v| k.to_s.include?('_attributes') }.dup
+              attributes.each_pair do |att, val|
+                self.send(name).send("#{att}=", val)
+              end
             end
           else
             super(attributes)
