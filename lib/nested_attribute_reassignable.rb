@@ -49,6 +49,9 @@ module NestedAttributeReassignable
 
             if ActiveRecord::Type::Boolean.new.cast(id_attributes[:_destroy])
               send(name).find { |c| c.id == id_attributes[:id].to_i }.mark_for_destruction
+            elsif ActiveRecord::Type::Boolean.new.cast(id_attributes[:_delete])
+              record = send(name).find { |c| c.id == id_attributes[:id].to_i }
+              send(name).delete(record)
             else
               nested_attributes = id_attributes.select { |k,v| k.to_s.include?('_attributes') }
               nested_attributes.each_pair do |key, val|
@@ -66,6 +69,8 @@ module NestedAttributeReassignable
           if attributes[:id]
             if ActiveRecord::Type::Boolean.new.cast(attributes[:_destroy])
               self.send(name).mark_for_destruction
+            elsif ActiveRecord::Type::Boolean.new.cast(attributes[:_delete])
+              send("#{name}=", nil)
             else
               record = Helper.children_for(self.class, name, attributes[:id])
               self.send("#{name}=", record)

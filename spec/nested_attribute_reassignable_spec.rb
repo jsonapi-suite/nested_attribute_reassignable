@@ -56,6 +56,18 @@ describe NestedAttributeReassignable do
         }.to change { p.reload.family }.from(family).to(nil)
         expect { family.reload }.to raise_error(ActiveRecord::RecordNotFound)
       end
+
+      context 'via _delete' do
+        it 'should remove the relation without destroying the record' do
+          family = Family.create!(name: 'Jetson')
+          p = Person.create!(family_attributes: { id: family.id })
+
+          expect {
+            p.update_attributes(family_attributes: { id: family.id, _delete: 'true' })
+          }.to change { p.reload.family }.from(family).to(nil)
+          expect { family.reload }.to_not raise_error
+        end
+      end
     end
   end
 
@@ -107,12 +119,26 @@ describe NestedAttributeReassignable do
       end
     end
 
-    it 'should destroy the relation' do
-      spot = Pet.create!(name: 'spot')
-      delme = Pet.create!(name: 'delme')
-      p = Person.create(pets: [spot, delme])
-      p.update_attributes!(pets_attributes: [{ id: delme.id, _destroy: 'true' }])
-      expect(p.reload.pets.map(&:name)).to match_array(%(spot))
+    context 'when marking for destruction' do
+      it 'should destroy the relation' do
+        spot = Pet.create!(name: 'spot')
+        delme = Pet.create!(name: 'delme')
+        p = Person.create(pets: [spot, delme])
+        p.update_attributes!(pets_attributes: [{ id: delme.id, _destroy: 'true' }])
+        expect(p.reload.pets.map(&:name)).to match_array(%(spot))
+        expect { delme.reload }.to raise_error(ActiveRecord::RecordNotFound)
+      end
+
+      context 'via _delete' do
+        it 'should remove the relation without destroying the object' do
+          spot = Pet.create!(name: 'spot')
+          delme = Pet.create!(name: 'delme')
+          p = Person.create(pets: [spot, delme])
+          p.update_attributes!(pets_attributes: [{ id: delme.id, _delete: 'true' }])
+          expect(p.reload.pets.map(&:name)).to match_array(%(spot))
+          expect { delme.reload }.to_not raise_error
+        end
+      end
     end
   end
 
@@ -132,6 +158,18 @@ describe NestedAttributeReassignable do
           p.update_attributes(office_attributes: { id: office.id, _destroy: true })
         }.to change { p.reload.office }.from(office).to(nil)
         expect { office.reload }.to raise_error(ActiveRecord::RecordNotFound)
+      end
+
+      context 'and it is a _delete' do
+        it 'should remove the relation without destroying the object' do
+          office = Office.create!
+          p = Person.create!(office_attributes: { id: office.id })
+
+          expect {
+            p.update_attributes(office_attributes: { id: office.id, _delete: true })
+          }.to change { p.reload.office }.from(office).to(nil)
+          expect { office.reload }.to_not raise_error
+        end
       end
     end
   end

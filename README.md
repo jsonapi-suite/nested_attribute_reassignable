@@ -43,3 +43,9 @@ name: 'Elmo' }])
 person.reload.pets.first.id == pet.id # => true
 person.reload.pets.first.name # => 'Spot', not 'Elmo'
 ```
+
+### _delete
+
+Normal `accepts_nested_attributes_for` accepts a `_destroy` parameter
+for destroying the association. This will destroy the underlying record.
+If you only want to disassociate the record, you can now use `_delete`.
