@@ -80,6 +80,17 @@ describe NestedAttributeReassignable do
       end
     end
 
+    # Don't require the API request to send 10,000 comment ids, just the new comment ids
+    context 'when passing a subset of all ids' do
+      it 'should append to the association array, not replace it' do
+        person = Person.create!(pets: [Pet.create!(name: 'Spot')])
+        expect(person.pets.map(&:name)).to match_array(%w(Spot))
+        pet2 = Pet.create!(name: 'lassie')
+        person.update_attributes!(pets_attributes: [{ id: pet2.id }])
+        expect(person.reload.pets.map(&:name)).to match_array(%w(Spot lassie))
+      end
+    end
+
     context 'when passing id and attributes in the same record' do
       it 'should associate, not update the record' do
         pet = Pet.create!(name: 'original')
