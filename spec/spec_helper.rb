@@ -68,6 +68,17 @@ class Person < ApplicationRecord
   reassignable_nested_attributes_for :family
 end
 
+class SpecialPerson < ApplicationRecord
+  self.table_name = 'people'
+
+  has_many    :pets, foreign_key: :person_id
+  has_one     :office
+  belongs_to  :family
+
+  reassignable_nested_attributes_for :family, lookup_key: :name
+  reassignable_nested_attributes_for :pets, lookup_key: :name
+end
+
 class Pet < ApplicationRecord
   belongs_to :person
   has_many :toys
