@@ -3,6 +3,18 @@ require 'spec_helper'
 #ActiveRecord::Base.logger = Logger.new(STDOUT)
 
 describe NestedAttributeReassignable do
+  describe "#reassignable_nested_attributes_for" do
+
+    it "should override allow_destroy to be truthy" do
+      class Person
+        reassignable_nested_attributes_for :pets, allow_destroy: false
+      end
+
+      opts = Person.nested_attributes_options[:pets]
+      expect(opts[:allow_destroy]).to be_truthy
+    end
+  end
+
   context 'when belongs_to' do
     context 'when passing id only' do
       it 'should assign the id as foreign key' do
@@ -84,6 +96,14 @@ describe NestedAttributeReassignable do
       it 'should associate the existing objects' do
         pets = [Pet.create!, Pet.create!]
         p = Person.create!(pets_attributes: [{ id: pets.first.id }, { id: pets.last.id }])
+        expect(p.reload.pets).to eq(pets)
+      end
+
+      it 'should handle multiple updates on parent' do
+        pets = [Pet.create!, Pet.create!]
+        p = Person.create!
+        p.update_attributes(pets_attributes: [{ id: pets.first.id }])
+        p.update_attributes(pets_attributes: [{ id: pets.last.id }])
         expect(p.reload.pets).to eq(pets)
       end
     end

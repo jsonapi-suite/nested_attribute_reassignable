@@ -2,6 +2,18 @@ require "nested_attribute_reassignable/version"
 
 module NestedAttributeReassignable
   class Helper
+    def self.has_delete_flag?(hash)
+      has_key?(hash, :_delete)
+    end
+
+    def self.has_destroy_flag?(hash)
+      has_key?(hash, :_destroy)
+    end
+
+    def self.has_key?(hash, key)
+      ActiveRecord::Type::Boolean.new.cast(hash[key])
+    end
+
     def self.symbolize_keys!(attributes)
       if attributes.is_a?(Array)
         return unless attributes[0].respond_to?(:symbolize_keys!)
@@ -35,52 +47,51 @@ module NestedAttributeReassignable
   # have time right now D:
   # Just go by the tests.
   module ClassMethods
-    def reassignable_nested_attributes_for(name, *args)
-      accepts_nested_attributes_for(name, *args)
+    def reassignable_nested_attributes_for(association_name, *args)
+      options = args.extract_options!.symbolize_keys
+      options.update({ :allow_destroy => true })
 
-      define_method "#{name}_attributes=" do |attributes|
+      accepts_nested_attributes_for(association_name, options)
+
+      define_method "#{association_name}_attributes=" do |attributes|
         Helper.symbolize_keys!(attributes)
 
         if attributes.is_a?(Array)
           id_attribute_sets = attributes.select { |a| a.has_key?(:id) }
-          children = Helper.children_for(self.class, name, attributes.map { |a| a[:id] }).to_a
+          children = Helper.children_for(self.class, association_name, attributes.map { |a| a[:id] }).to_a
           id_attribute_sets.each do |id_attributes|
-            if child = children.find { |c| c.id.to_s == id_attributes[:id].to_s }
-              if ActiveRecord::Type::Boolean.new.cast(id_attributes[:_destroy])
-                send(name).find { |c| c.id == id_attributes[:id].to_i }.mark_for_destruction
-              elsif ActiveRecord::Type::Boolean.new.cast(id_attributes[:_delete])
-                record = send(name).find { |c| c.id == id_attributes[:id].to_i }
-                send(name).delete(record)
+            if existing_record = children.find { |c| c.id.to_s == id_attributes[:id].to_s }
+              if Helper.has_destroy_flag?(id_attributes)
+                send(association_name).find { |c| c.id == id_attributes[:id].to_i }.mark_for_destruction
+              elsif Helper.has_delete_flag?(id_attributes)
+                record = send(association_name).find { |c| c.id == id_attributes[:id].to_i }
+                send(association_name).delete(record)
               else
                 nested_attributes = id_attributes.select { |k,v| k.to_s.include?('_attributes') }
-                nested_attributes.each_pair do |key, val|
-                  child.send("#{key}=", val)
-                end
+                existing_record.assign_attributes(nested_attributes)
               end
             else
-              raise_nested_attributes_record_not_found!(name, id_attributes[:id])
+              raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
             end
           end
-          self.send("#{name}=", (self.send(name) | children))
+          self.send("#{association_name}=", (self.send(association_name) | children))
 
           non_id_attribute_sets = attributes.reject { |a| a.has_key?(:id) }
           non_id_attribute_sets.each do |non_id_attributes|
-            self.send(name).build(non_id_attributes)
+            self.send(association_name).build(non_id_attributes)
           end
         else
           if attributes[:id]
-            if ActiveRecord::Type::Boolean.new.cast(attributes[:_destroy])
-              self.send(name).mark_for_destruction
-            elsif ActiveRecord::Type::Boolean.new.cast(attributes[:_delete])
-              send("#{name}=", nil)
+            if Helper.has_destroy_flag?(attributes)
+              self.send(association_name).mark_for_destruction
+            elsif Helper.has_delete_flag?(attributes)
+              send("#{association_name}=", nil)
             else
-              record = Helper.children_for(self.class, name, attributes[:id])
-              self.send("#{name}=", record)
+              existing_record = Helper.children_for(self.class, association_name, attributes[:id])
+              self.send("#{association_name}=", existing_record)
 
-              attributes = attributes.select { |k,v| k.to_s.include?('_attributes') }.dup
-              attributes.each_pair do |att, val|
-                self.send(name).send("#{att}=", val)
-              end
+              nested_attributes = attributes.select { |k,v| k.to_s.include?('_attributes') }.dup
+              existing_record.assign_attributes(nested_attributes)
             end
           else
             super(attributes)
