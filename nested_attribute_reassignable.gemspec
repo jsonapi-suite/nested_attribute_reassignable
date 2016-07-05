@@ -35,4 +35,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "sqlite3"
   spec.add_development_dependency "pry"
   spec.add_development_dependency "pry-byebug"
+  spec.add_development_dependency "guard-rspec", '~> 4.7'
 end

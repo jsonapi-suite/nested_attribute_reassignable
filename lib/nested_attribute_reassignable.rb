@@ -45,18 +45,20 @@ module NestedAttributeReassignable
           id_attribute_sets = attributes.select { |a| a.has_key?(:id) }
           children = Helper.children_for(self.class, name, attributes.map { |a| a[:id] }).to_a
           id_attribute_sets.each do |id_attributes|
-            child = children.find { |c| c.id == id_attributes[:id].to_i }
-
-            if ActiveRecord::Type::Boolean.new.cast(id_attributes[:_destroy])
-              send(name).find { |c| c.id == id_attributes[:id].to_i }.mark_for_destruction
-            elsif ActiveRecord::Type::Boolean.new.cast(id_attributes[:_delete])
-              record = send(name).find { |c| c.id == id_attributes[:id].to_i }
-              send(name).delete(record)
-            else
-              nested_attributes = id_attributes.select { |k,v| k.to_s.include?('_attributes') }
-              nested_attributes.each_pair do |key, val|
-                child.send("#{key}=", val)
+            if child = children.find { |c| c.id.to_s == id_attributes[:id].to_s }
+              if ActiveRecord::Type::Boolean.new.cast(id_attributes[:_destroy])
+                send(name).find { |c| c.id == id_attributes[:id].to_i }.mark_for_destruction
+              elsif ActiveRecord::Type::Boolean.new.cast(id_attributes[:_delete])
+                record = send(name).find { |c| c.id == id_attributes[:id].to_i }
+                send(name).delete(record)
+              else
+                nested_attributes = id_attributes.select { |k,v| k.to_s.include?('_attributes') }
+                nested_attributes.each_pair do |key, val|
+                  child.send("#{key}=", val)
+                end
               end
+            else
+              raise_nested_attributes_record_not_found!(name, id_attributes[:id])
             end
           end
           self.send("#{name}=", (self.send(name) | children))

@@ -12,6 +12,14 @@ describe NestedAttributeReassignable do
       end
     end
 
+    context 'when passing non existing id' do
+      it 'should raise record not found exception' do
+        expect {  
+          Person.create!(family_attributes: { id: 23 })
+        }.to raise_error(ActiveRecord::RecordNotFound)
+      end
+    end
+
     context 'when passing attributes without id' do
       it 'should create the association and assign it' do
         p = Person.create!(family_attributes: { name: 'Partridge' })
@@ -77,6 +85,15 @@ describe NestedAttributeReassignable do
         pets = [Pet.create!, Pet.create!]
         p = Person.create!(pets_attributes: [{ id: pets.first.id }, { id: pets.last.id }])
         expect(p.reload.pets).to eq(pets)
+      end
+    end
+
+    context 'when passing non existent id' do
+      it 'should raise record not found exception' do
+        pets = [Pet.create!, Pet.create!]
+        expect { 
+          Person.create!(pets_attributes: [{ id: 23 }, { id: pets.last.id }])
+        }.to raise_error(ActiveRecord::RecordNotFound)
       end
     end
 
