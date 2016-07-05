@@ -86,6 +86,14 @@ describe NestedAttributeReassignable do
         p = Person.create!(pets_attributes: [{ id: pets.first.id }, { id: pets.last.id }])
         expect(p.reload.pets).to eq(pets)
       end
+
+      it 'should handle multiple updates on parent' do
+        pets = [Pet.create!, Pet.create!]
+        p = Person.create!
+        p.update_attributes(pets_attributes: [{ id: pets.first.id }])
+        p.update_attributes(pets_attributes: [{ id: pets.last.id }])
+        expect(p.reload.pets).to eq(pets)
+      end
     end
 
     context 'when passing non existent id' do
