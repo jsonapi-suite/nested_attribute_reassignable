@@ -48,6 +48,9 @@ module NestedAttributeReassignable
   # Just go by the tests.
   module ClassMethods
     def reassignable_nested_attributes_for(association_name, *args)
+      options = args.extract_options!
+      raise ArgumentError, "allow_destroy is not supported" if options.has_key?(:allow_destroy)
+
       accepts_nested_attributes_for(association_name, *args)
 
       define_method "#{association_name}_attributes=" do |attributes|

@@ -3,6 +3,17 @@ require 'spec_helper'
 #ActiveRecord::Base.logger = Logger.new(STDOUT)
 
 describe NestedAttributeReassignable do
+  describe "#reassignable_nested_attributes_for" do
+    it "should raise error when allow_destroy" do
+      expect {
+        class Person
+          reassignable_nested_attributes_for :pets, allow_destroy: true
+        end
+
+      }.to raise_error(ArgumentError)
+    end
+  end
+
   context 'when belongs_to' do
     context 'when passing id only' do
       it 'should assign the id as foreign key' do
