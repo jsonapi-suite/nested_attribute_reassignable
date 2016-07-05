@@ -2,13 +2,17 @@ require "nested_attribute_reassignable/version"
 
 module NestedAttributeReassignable
   class Helper
-    def self.symbolize_keys!(attributes)
+    def self.has_delete_flag?(hash)
+      ActiveRecord::Type::Boolean.new.cast(hash[:_delete])
+    end
+
+    def self.with_indifferent_access(attributes)
       if attributes.is_a?(Array)
-        return unless attributes[0].respond_to?(:symbolize_keys!)
-        attributes.each { |a| a.symbolize_keys! }
+        return unless attributes[0].respond_to?(:with_indifferent_access)
+        attributes.map { |a| a.with_indifferent_access }
       else
-        return unless attributes.respond_to?(:symbolize_keys!)
-        attributes.symbolize_keys!
+        return unless attributes.respond_to?(:with_indifferent_access)
+        attributes.with_indifferent_access
       end
     end
 
@@ -39,16 +43,16 @@ module NestedAttributeReassignable
       accepts_nested_attributes_for(name, *args)
 
       define_method "#{name}_attributes=" do |attributes|
-        Helper.symbolize_keys!(attributes)
+        attributes = Helper.with_indifferent_access(attributes)
 
         if attributes.is_a?(Array)
           id_attribute_sets = attributes.select { |a| a.has_key?(:id) }
           children = Helper.children_for(self.class, name, attributes.map { |a| a[:id] }).to_a
           id_attribute_sets.each do |id_attributes|
             if child = children.find { |c| c.id.to_s == id_attributes[:id].to_s }
-              if ActiveRecord::Type::Boolean.new.cast(id_attributes[:_destroy])
+              if has_destroy_flag?(id_attributes)
                 send(name).find { |c| c.id == id_attributes[:id].to_i }.mark_for_destruction
-              elsif ActiveRecord::Type::Boolean.new.cast(id_attributes[:_delete])
+              elsif Helper.has_delete_flag?(id_attributes)
                 record = send(name).find { |c| c.id == id_attributes[:id].to_i }
                 send(name).delete(record)
               else
@@ -69,9 +73,9 @@ module NestedAttributeReassignable
           end
         else
           if attributes[:id]
-            if ActiveRecord::Type::Boolean.new.cast(attributes[:_destroy])
+            if has_destroy_flag?(attributes)
               self.send(name).mark_for_destruction
-            elsif ActiveRecord::Type::Boolean.new.cast(attributes[:_delete])
+            elsif Helper.has_delete_flag?(attributes)
               send("#{name}=", nil)
             else
               record = Helper.children_for(self.class, name, attributes[:id])
@@ -89,4 +93,5 @@ module NestedAttributeReassignable
       end
     end
   end
+
 end
