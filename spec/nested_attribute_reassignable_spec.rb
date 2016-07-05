@@ -21,7 +21,7 @@ describe NestedAttributeReassignable do
       context 'on create' do
         it 'should create associate record' do
           family = Family.create!(name: 'surname')
-          p = SpecialPerson.create!(family_attributes: { name: family.name })
+          p = SpecialPerson.create!(family_attributes: { id: family.name })
           expect(p.family_id).to eq(family.id)
         end
       end
@@ -31,21 +31,22 @@ describe NestedAttributeReassignable do
         let!(:family) { Family.create!(name: 'surname') }
 
         it 'should create associate records' do
-          instance.update_attributes(family_attributes: { name: family.name })
+          instance.update_attributes(family_attributes: { id: family.name })
           expect(instance.family_id).to eq(family.id)
         end
 
         it 'should destroy associate record' do
-          instance.update_attributes(family_attributes: { name: family.name })
+          instance.update_attributes(family_attributes: { id: family.name })
 
-          instance.update_attributes(family_attributes: { name: family.name, _destroy: true })
+          instance.update_attributes(family_attributes: { id: family.name, _destroy: true })
           expect(instance.reload.family_id).to be nil
         end
 
-        it 'should delete associate record' do
-          instance.update_attributes(family_attributes: { name: family.name })
 
-          instance.update_attributes(family_attributes: { name: family.name, _delete: true })
+        it 'should delete associate record' do
+          instance.update_attributes(family_attributes: { id: family.name })
+
+          instance.update_attributes(family_attributes: { id: family.name, _delete: true })
           expect(instance.reload.family_id).to be nil
         end
       end
@@ -56,28 +57,42 @@ describe NestedAttributeReassignable do
 
       context 'on create' do
         it 'should create associated records' do
-          p = SpecialPerson.create!(pets_attributes: [{ name: pets.first.name }, { name: pets.last.name }])
+          p = SpecialPerson.create!(pets_attributes: [{ id: pets.first.name }, { id: pets.last.name }])
           expect(p.reload.pets).to eq(pets)
         end
       end
 
       context 'on update' do
-        let!(:instance) { SpecialPerson.create!(pets_attributes: [{ name: pets.last.name }]) }
+        let!(:instance) { SpecialPerson.create!(pets_attributes: [{ id: pets.last.name }]) }
 
         it 'should create new associated records' do
-          instance.update_attributes(pets_attributes: [{ name: pets.first.name }])
+          instance.update_attributes(pets_attributes: [{ id: pets.first.name }])
           expect(instance.reload.pets).to eq(pets)
         end
 
-        it 'should destroy associated records' do
-          instance.update_attributes(pets_attributes: [{ name: pets.first.name }, { name: pets.last.name, _destroy: true}])
-          expect(instance.reload.pets).to eq([pets.first])
+        context "on _destroy" do
+          it 'should remove associated records' do
+            instance.update_attributes(pets_attributes: [{ id: pets.first.name }, { id: pets.last.name, _destroy: true}])
+            expect(instance.reload.pets).to eq([pets.first])
+          end
+          it 'should raise exception when matching record not found' do
+            expect {
+              instance.update_attributes(pets_attributes: [ { id: 'unknown', _destroy: true}])
+            }.to raise_error(ActiveRecord::RecordNotFound)
+          end
         end
 
-        it 'should delete associated records' do
-          instance.update_attributes(pets_attributes: [{ name: pets.first.name }, { name: pets.last.name, _delete: true}])
-          expect(instance.reload.pets).to eq([pets.first])
-          expect(Pet.all).to eq(pets)
+        context "on _delete" do
+          it 'should remove associated records' do
+            instance.update_attributes(pets_attributes: [{ id: pets.first.name }, { id: pets.last.name, _delete: true}])
+            expect(instance.reload.pets).to eq([pets.first])
+            expect(Pet.all).to eq(pets)
+          end
+          it 'should raise exception when matching record not found' do
+            expect {
+              instance.update_attributes(pets_attributes: [ { id: 'unknown', _delete: true}])
+            }.to raise_error(ActiveRecord::RecordNotFound)
+          end
         end
       end
     end
