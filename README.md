@@ -44,6 +44,9 @@ person.reload.pets.first.id == pet.id # => true
 person.reload.pets.first.name # => 'Spot', not 'Elmo'
 ```
 
+`nested_attribute_reassignable` internally calls `accepts_nested_attributes_for`
+with `allow_destroy: true` option.
+
 ### _delete
 
 Normal `accepts_nested_attributes_for` accepts a `_destroy` parameter
