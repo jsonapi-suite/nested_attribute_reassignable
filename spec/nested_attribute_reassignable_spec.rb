@@ -4,13 +4,14 @@ require 'spec_helper'
 
 describe NestedAttributeReassignable do
   describe "#reassignable_nested_attributes_for" do
-    it "should raise error when allow_destroy" do
-      expect {
-        class Person
-          reassignable_nested_attributes_for :pets, allow_destroy: true
-        end
 
-      }.to raise_error(ArgumentError)
+    it "should override allow_destroy to be truthy" do
+      class Person
+        reassignable_nested_attributes_for :pets, allow_destroy: false
+      end
+
+      opts = Person.nested_attributes_options[:pets]
+      expect(opts[:allow_destroy]).to be_truthy
     end
   end
 
