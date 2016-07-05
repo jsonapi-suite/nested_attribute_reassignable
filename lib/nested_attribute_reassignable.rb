@@ -39,22 +39,22 @@ module NestedAttributeReassignable
   # have time right now D:
   # Just go by the tests.
   module ClassMethods
-    def reassignable_nested_attributes_for(name, *args)
-      accepts_nested_attributes_for(name, *args)
+    def reassignable_nested_attributes_for(association_name, *args)
+      accepts_nested_attributes_for(association_name, *args)
 
-      define_method "#{name}_attributes=" do |attributes|
+      define_method "#{association_name}_attributes=" do |attributes|
         attributes = Helper.with_indifferent_access(attributes)
 
         if attributes.is_a?(Array)
           id_attribute_sets = attributes.select { |a| a.has_key?(:id) }
-          children = Helper.children_for(self.class, name, attributes.map { |a| a[:id] }).to_a
+          children = Helper.children_for(self.class, association_name, attributes.map { |a| a[:id] }).to_a
           id_attribute_sets.each do |id_attributes|
             if child = children.find { |c| c.id.to_s == id_attributes[:id].to_s }
               if has_destroy_flag?(id_attributes)
-                send(name).find { |c| c.id == id_attributes[:id].to_i }.mark_for_destruction
+                send(association_name).find { |c| c.id == id_attributes[:id].to_i }.mark_for_destruction
               elsif Helper.has_delete_flag?(id_attributes)
-                record = send(name).find { |c| c.id == id_attributes[:id].to_i }
-                send(name).delete(record)
+                record = send(association_name).find { |c| c.id == id_attributes[:id].to_i }
+                send(association_name).delete(record)
               else
                 nested_attributes = id_attributes.select { |k,v| k.to_s.include?('_attributes') }
                 nested_attributes.each_pair do |key, val|
@@ -62,28 +62,28 @@ module NestedAttributeReassignable
                 end
               end
             else
-              raise_nested_attributes_record_not_found!(name, id_attributes[:id])
+              raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
             end
           end
-          self.send("#{name}=", (self.send(name) | children))
+          self.send("#{association_name}=", (self.send(association_name) | children))
 
           non_id_attribute_sets = attributes.reject { |a| a.has_key?(:id) }
           non_id_attribute_sets.each do |non_id_attributes|
-            self.send(name).build(non_id_attributes)
+            self.send(association_name).build(non_id_attributes)
           end
         else
           if attributes[:id]
             if has_destroy_flag?(attributes)
-              self.send(name).mark_for_destruction
+              self.send(association_name).mark_for_destruction
             elsif Helper.has_delete_flag?(attributes)
-              send("#{name}=", nil)
+              send("#{association_name}=", nil)
             else
-              record = Helper.children_for(self.class, name, attributes[:id])
-              self.send("#{name}=", record)
+              record = Helper.children_for(self.class, association_name, attributes[:id])
+              self.send("#{association_name}=", record)
 
               attributes = attributes.select { |k,v| k.to_s.include?('_attributes') }.dup
               attributes.each_pair do |att, val|
-                self.send(name).send("#{att}=", val)
+                self.send(association_name).send("#{att}=", val)
               end
             end
           else
