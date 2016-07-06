@@ -114,6 +114,66 @@ describe NestedAttributeReassignable do
         end
       end
     end
+
+    context 'when has_many  :through' do
+      let!(:mobile) { Service.create!(name: 'mobile') }
+      let!(:rent)   { Service.create!(name: 'rent')   }
+
+      context 'on create' do
+        it 'should create associated records' do
+          p = Person.create!(services_attributes: [{ id: mobile.name }, { id: rent.name }])
+          expect(p.reload.services).to eq([mobile, rent])
+        end
+      end
+
+      context 'when no match found' do
+        it 'should raise RecordNotFound exception' do
+          expect {
+            Person.create!(services_attributes: [ { id: 'unknown', _destroy: true}])
+          }.to raise_error(ActiveRecord::RecordNotFound)
+        end
+      end
+
+      context 'on update' do
+        let!(:instance) { Person.create!(services_attributes: [{ id: rent.name }]) }
+
+        it 'should create new associated records' do
+          instance.update_attributes(services_attributes: [{ id: mobile.name }])
+          expect(instance.reload.services).to eq([rent, mobile])
+        end
+
+        context "on _destroy" do
+          xit 'should remove associated records' do
+            instance.update_attributes(services_attributes: [{ id: mobile.name }, { id: rent.name, _destroy: true}])
+
+            instance.reload
+            expect(instance.subscriptions.count).to eq(1)
+            expect(instance.subscriptions[0].bill_id).to eq(mobile.id)
+            expect(instance.services).to eq([mobile])
+            expect(Service.all).to eq([mobile])
+          end
+
+          it 'should raise exception when matching record not found' do
+            expect {
+              instance.update_attributes(services_attributes: [ { id: 'unknown', _destroy: true}])
+            }.to raise_error(ActiveRecord::RecordNotFound)
+          end
+        end
+
+        context "on _delete" do
+          it 'should remove associated records' do
+            instance.update_attributes(services_attributes: [{ id: mobile.name }, { id: rent.name, _delete: true}])
+            expect(instance.reload.services).to eq([mobile])
+          end
+
+          it 'should raise exception when matching record not found' do
+            expect {
+              instance.update_attributes(services_attributes: [ { id: 'unknown', _delete: true}])
+            }.to raise_error(ActiveRecord::RecordNotFound)
+          end
+        end
+      end
+    end
   end
 
   context 'when belongs_to' do

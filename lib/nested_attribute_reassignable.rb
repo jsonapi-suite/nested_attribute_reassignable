@@ -46,7 +46,8 @@ module NestedAttributeReassignable
       accepts_nested_attributes_for(association_name, options)
 
       define_method "#{association_name}_attributes=" do |attributes|
-        association_klass = self.class._reflect_on_association(association_name).klass
+        reflection_klass  = self.class._reflect_on_association(association_name)
+        association_klass = reflection_klass.klass
 
         Helper.symbolize_keys!(attributes)
 
@@ -64,7 +65,7 @@ module NestedAttributeReassignable
                 end
               elsif Helper.has_delete_flag?(id_attributes)
                 if record = send(association_name).find { |c| c.id.to_s == existing_record.id.to_s }
-                  send(association_name).delete(record)
+                  reflection_klass.through_reflection ? record.mark_for_destruction : send(association_name).delete(record)
                 else
                   raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
                 end
@@ -84,12 +85,11 @@ module NestedAttributeReassignable
         else
 
           if attributes[:id]
-            
             if Helper.has_destroy_flag?(attributes)
               self.send(association_name).mark_for_destruction
             elsif Helper.has_delete_flag?(attributes)
               send("#{association_name}=", nil)
-            elsif existing_record = association_klass.where(lookup_key => attributes[:id]).first
+            elsif existing_record = association_klass.find_by(lookup_key => attributes[:id])
 
               self.send("#{association_name}=", existing_record)
 
