@@ -24,15 +24,6 @@ module NestedAttributeReassignable
         attributes.symbolize_keys!
       end
     end
-
-    def self.children_for(klass, association_name, ids, lookup_key = :id)
-      association_klass = reflection(klass, association_name).klass
-      association_klass.where(lookup_key => ids)
-    end
-
-    def self.reflection(klass, association_name)
-      klass.reflect_on_association(association_name)
-    end
   end
 
   extend ActiveSupport::Concern
@@ -55,13 +46,13 @@ module NestedAttributeReassignable
       accepts_nested_attributes_for(association_name, options)
 
       define_method "#{association_name}_attributes=" do |attributes|
+        association_klass = self.class._reflect_on_association(association_name).klass
+
         Helper.symbolize_keys!(attributes)
-        options = self.reassignable_nested_attributes_options[association_name]
-        id_key  = options[:lookup_key]
 
         if attributes.is_a?(Array)
           id_attribute_sets = attributes.select { |a| a.has_key?(:id) }
-          children = Helper.children_for(self.class, association_name, attributes.map { |a| a[:id] }, lookup_key).to_a
+          children = association_klass.where(lookup_key => attributes.map { |a| a[:id] }).to_a
 
           id_attribute_sets.each do |id_attributes|
             if existing_record = children.find { |c| c.send(lookup_key).to_s == id_attributes[:id].to_s }
@@ -93,11 +84,12 @@ module NestedAttributeReassignable
         else
 
           if attributes[:id]
+            
             if Helper.has_destroy_flag?(attributes)
               self.send(association_name).mark_for_destruction
             elsif Helper.has_delete_flag?(attributes)
               send("#{association_name}=", nil)
-            elsif existing_record = Helper.children_for(self.class, association_name, attributes[:id], lookup_key).first
+            elsif existing_record = association_klass.where(lookup_key => attributes[:id]).first
 
               self.send("#{association_name}=", existing_record)
 

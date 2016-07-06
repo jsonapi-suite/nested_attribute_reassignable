@@ -26,13 +26,22 @@ describe NestedAttributeReassignable do
         end
       end
 
+      context 'when no match found' do
+        it 'should raise RecordNotFound exception' do
+          expect {
+            SpecialPerson.create!(family_attributes: { id: 'unknown' })
+          }.to raise_error(ActiveRecord::RecordNotFound)
+        end
+      end
+
       context 'on update' do
-        let!(:instance) { SpecialPerson.create }
+        let!(:instance) { SpecialPerson.create!(family_attributes: { id: family.name }) }
         let!(:family) { Family.create!(name: 'surname') }
 
-        it 'should create associate records' do
-          instance.update_attributes(family_attributes: { id: family.name })
-          expect(instance.family_id).to eq(family.id)
+        it 'should update associate records' do
+          f = Family.create!(name: 'updated')
+          instance.update_attributes(family_attributes: { id: 'updated' })
+          expect(instance.family_id).to eq(f.id)
         end
 
         it 'should destroy associate record' do
@@ -41,7 +50,6 @@ describe NestedAttributeReassignable do
           instance.update_attributes(family_attributes: { id: family.name, _destroy: true })
           expect(instance.reload.family_id).to be nil
         end
-
 
         it 'should delete associate record' do
           instance.update_attributes(family_attributes: { id: family.name })
@@ -62,6 +70,14 @@ describe NestedAttributeReassignable do
         end
       end
 
+      context 'when no match found' do
+        it 'should raise RecordNotFound exception' do
+          expect {
+            SpecialPerson.create!(pets_attributes: [ { id: 'unknown', _destroy: true}])
+          }.to raise_error(ActiveRecord::RecordNotFound)
+        end
+      end
+
       context 'on update' do
         let!(:instance) { SpecialPerson.create!(pets_attributes: [{ id: pets.last.name }]) }
 
@@ -75,6 +91,7 @@ describe NestedAttributeReassignable do
             instance.update_attributes(pets_attributes: [{ id: pets.first.name }, { id: pets.last.name, _destroy: true}])
             expect(instance.reload.pets).to eq([pets.first])
           end
+
           it 'should raise exception when matching record not found' do
             expect {
               instance.update_attributes(pets_attributes: [ { id: 'unknown', _destroy: true}])
@@ -88,6 +105,7 @@ describe NestedAttributeReassignable do
             expect(instance.reload.pets).to eq([pets.first])
             expect(Pet.all).to eq(pets)
           end
+
           it 'should raise exception when matching record not found' do
             expect {
               instance.update_attributes(pets_attributes: [ { id: 'unknown', _delete: true}])
