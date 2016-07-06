@@ -52,13 +52,50 @@ Supports customizing the lookup_key for nested attributes as shown below
 ```ruby
 class Person < ApplicationRecord
   has_many    :pets
-  reassignable_nested_attributes_for :family, lookup_key: :name
+  has_many    :bills
+  has_many    :services, through: :bills, through: :destroy
+
+  reassignable_nested_attributes_for :services, lookup_key: :name
+  reassignable_nested_attributes_for :pets, lookup_key: :name
 end
-pet = Pet.create!(name: 'Spot')
-person = Person.create(name: 'Joe', pets_attributes: [{ id: pet.name,
-}])
-person.reload.pets.first.id == pet.id # => true
+
+rent    = Service.create!(name: 'Rent')
+mobile  = Service.create!(name: 'Mobile')
+cat     = Pet.create!(name: 'Cat')
+
+person = Person.create({
+  name: 'Joe', 
+  services_attributes: [{ id: rent.name }]),
+  pets_attributes: [{ id: cat.name }])
+}
+
+person.reload.bills.first.service_id == rent.id # => true
+person.reload.pets.first.id == cat.id # => true
+
+person.update_attributes({
+  pets_attributes: [{ id: cat.name, _destroy: true }])
+}
+
+#has_many 
+person.reload.pets #=> []
+Pet.all #=> [] deletes associated records
+
+#has_many => through
+person.update_attributes({
+  services_attributes: [{ id: rent.name, _destroy: true }])
+}
+
+person.reload.bills #=> []
+Service.all #=> [rent, mobile] won't destroy Service, only the join record
+
+person.update_attributes({
+  services_attributes: [{ id: rent.name, _delete: true }])
+}
+
+person.reload.bills #=> []
+Service.all #=> [rent, mobile] won't delete Service, only the join record
 ```
+
 
 ### _delete
 

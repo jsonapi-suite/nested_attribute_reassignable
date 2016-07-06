@@ -51,6 +51,15 @@ ActiveRecord::Schema.define(:version => 1) do
     t.belongs_to :person, index: true
     t.string :name
   end
+
+  create_table :bills do |t|
+    t.belongs_to :person, index: true
+    t.belongs_to :service, index: true
+  end
+
+  create_table :services do |t|
+    t.string :name
+  end
 end
 
 class ApplicationRecord < ActiveRecord::Base
@@ -63,16 +72,20 @@ class Person < ApplicationRecord
   has_one :office
   belongs_to :family
 
+  has_many :bills
+  has_many :services, through: :bills, dependent: :destroy
+
   reassignable_nested_attributes_for :pets
   reassignable_nested_attributes_for :office
   reassignable_nested_attributes_for :family
+
+  reassignable_nested_attributes_for :services, lookup_key: :name
 end
 
 class SpecialPerson < ApplicationRecord
   self.table_name = 'people'
 
   has_many    :pets, foreign_key: :person_id
-  has_one     :office
   belongs_to  :family
 
   reassignable_nested_attributes_for :family, lookup_key: :name
@@ -102,4 +115,12 @@ end
 
 class Office < ApplicationRecord
   belongs_to :person
+end
+
+class Service < ApplicationRecord
+end
+
+class Bill < ApplicationRecord
+  belongs_to :person
+  belongs_to :service
 end
