@@ -47,6 +47,19 @@ person.reload.pets.first.name # => 'Spot', not 'Elmo'
 `nested_attribute_reassignable` internally calls `accepts_nested_attributes_for`
 with `allow_destroy: true` option.
 
+Supports customizing the lookup_key for nested attributes as shown below
+
+```ruby
+class Person < ApplicationRecord
+  has_many    :pets
+  reassignable_nested_attributes_for :family, lookup_key: :name
+end
+pet = Pet.create!(name: 'Spot')
+person = Person.create(name: 'Joe', pets_attributes: [{ id: pet.name,
+}])
+person.reload.pets.first.id == pet.id # => true
+```
+
 ### _delete
 
 Normal `accepts_nested_attributes_for` accepts a `_destroy` parameter

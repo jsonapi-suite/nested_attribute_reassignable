@@ -4,7 +4,6 @@ require 'spec_helper'
 
 describe NestedAttributeReassignable do
   describe "#reassignable_nested_attributes_for" do
-
     it "should override allow_destroy to be truthy" do
       class Person
         reassignable_nested_attributes_for :pets, allow_destroy: false
@@ -12,6 +11,90 @@ describe NestedAttributeReassignable do
 
       opts = Person.nested_attributes_options[:pets]
       expect(opts[:allow_destroy]).to be_truthy
+    end
+  end
+
+  describe 'with lookup_key' do
+    context 'when has_one' do
+      before { Family.create!(name: 'someone') }
+
+      context 'on create' do
+        it 'should create associate record' do
+          family = Family.create!(name: 'surname')
+          p = SpecialPerson.create!(family_attributes: { id: family.name })
+          expect(p.family_id).to eq(family.id)
+        end
+      end
+
+      context 'on update' do
+        let!(:instance) { SpecialPerson.create }
+        let!(:family) { Family.create!(name: 'surname') }
+
+        it 'should create associate records' do
+          instance.update_attributes(family_attributes: { id: family.name })
+          expect(instance.family_id).to eq(family.id)
+        end
+
+        it 'should destroy associate record' do
+          instance.update_attributes(family_attributes: { id: family.name })
+
+          instance.update_attributes(family_attributes: { id: family.name, _destroy: true })
+          expect(instance.reload.family_id).to be nil
+        end
+
+
+        it 'should delete associate record' do
+          instance.update_attributes(family_attributes: { id: family.name })
+
+          instance.update_attributes(family_attributes: { id: family.name, _delete: true })
+          expect(instance.reload.family_id).to be nil
+        end
+      end
+    end
+
+    context 'when has_many' do
+      let!(:pets) { [Pet.create!(name: 'pet1'), Pet.create!(name: 'pet2')] }
+
+      context 'on create' do
+        it 'should create associated records' do
+          p = SpecialPerson.create!(pets_attributes: [{ id: pets.first.name }, { id: pets.last.name }])
+          expect(p.reload.pets).to eq(pets)
+        end
+      end
+
+      context 'on update' do
+        let!(:instance) { SpecialPerson.create!(pets_attributes: [{ id: pets.last.name }]) }
+
+        it 'should create new associated records' do
+          instance.update_attributes(pets_attributes: [{ id: pets.first.name }])
+          expect(instance.reload.pets).to eq(pets)
+        end
+
+        context "on _destroy" do
+          it 'should remove associated records' do
+            instance.update_attributes(pets_attributes: [{ id: pets.first.name }, { id: pets.last.name, _destroy: true}])
+            expect(instance.reload.pets).to eq([pets.first])
+          end
+          it 'should raise exception when matching record not found' do
+            expect {
+              instance.update_attributes(pets_attributes: [ { id: 'unknown', _destroy: true}])
+            }.to raise_error(ActiveRecord::RecordNotFound)
+          end
+        end
+
+        context "on _delete" do
+          it 'should remove associated records' do
+            instance.update_attributes(pets_attributes: [{ id: pets.first.name }, { id: pets.last.name, _delete: true}])
+            expect(instance.reload.pets).to eq([pets.first])
+            expect(Pet.all).to eq(pets)
+          end
+          it 'should raise exception when matching record not found' do
+            expect {
+              instance.update_attributes(pets_attributes: [ { id: 'unknown', _delete: true}])
+            }.to raise_error(ActiveRecord::RecordNotFound)
+          end
+        end
+      end
     end
   end
 
@@ -55,8 +138,8 @@ describe NestedAttributeReassignable do
             id: family.id,
             name: 'Partridge',
             sigil_attributes: {
-              name: 'tree'
-            }
+            name: 'tree'
+          }
           })
           family = p.reload.family
           expect(family.id).to eq(family.id)
@@ -141,13 +224,13 @@ describe NestedAttributeReassignable do
         it 'should still handle the other association' do
           pet = Pet.create!(name: 'original')
           p = Person.create!(pets_attributes: [
-            {
-              id: pet.id,
-              name: 'newname',
-              toys_attributes: [
-                { name: 'ball' }
-              ]
-            }
+                             {
+            id: pet.id,
+            name: 'newname',
+            toys_attributes: [
+              { name: 'ball' }
+          ]
+          }
           ])
           created = p.reload.pets.first
           expect(created.id).to eq(pet.id)
