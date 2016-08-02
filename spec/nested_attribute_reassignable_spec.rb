@@ -1,6 +1,8 @@
 require 'spec_helper'
 
-#ActiveRecord::Base.logger = Logger.new(STDOUT)
+if ENV['DEBUG'] == 'true'
+  ActiveRecord::Base.logger = Logger.new(STDOUT)
+end
 
 describe NestedAttributeReassignable do
   describe "#reassignable_nested_attributes_for" do
@@ -187,7 +189,7 @@ describe NestedAttributeReassignable do
 
     context 'when passing non existing id' do
       it 'should raise record not found exception' do
-        expect {  
+        expect {
           Person.create!(family_attributes: { id: 23 })
         }.to raise_error(ActiveRecord::RecordNotFound)
       end
@@ -197,6 +199,18 @@ describe NestedAttributeReassignable do
       it 'should create the association and assign it' do
         p = Person.create!(family_attributes: { name: 'Partridge' })
         expect(p.reload.family.name).to eq('Partridge')
+      end
+
+      # No error raised here since it is totally valid to create a new
+      # parent record; the old record is still valid and may still have children
+      context 'but the record DOES already have a relation' do
+        it 'should raise an error' do
+          p = Person.create!(family_attributes: { name: 'Partridge' })
+          p.reload
+          expect {
+            p.update_attributes!(family_attributes: { name: 'Adams' })
+          }.to_not raise_error(NestedAttributeReassignable::RelationExists)
+        end
       end
     end
 
@@ -356,6 +370,15 @@ describe NestedAttributeReassignable do
       office = Office.create!
       p = Person.create!(office_attributes: { id: office.id })
       expect(p.reload.office).to eq(office)
+    end
+
+    context 'but the record DOES already have a relation' do
+      it 'should raise an error' do
+        p = Person.create!(office_attributes: { name: 'staples' })
+        expect {
+          p.update_attributes!(office_attributes: { name: 'carfax' })
+        }.to raise_error(NestedAttributeReassignable::RelationExists)
+      end
     end
 
     context 'when marking for destruction' do
