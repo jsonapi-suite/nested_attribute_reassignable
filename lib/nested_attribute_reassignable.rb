@@ -2,6 +2,21 @@ require "nested_attribute_reassignable/version"
 require "active_support/concern"
 
 module NestedAttributeReassignable
+  class RelationExists < StandardError
+    def initialize(model, relation)
+      @model = model.class.name.pluralize.underscore
+      @relation = relation
+    end
+
+    def message
+      <<-STR
+Relation '#{@relation}' already exists on '#{@model}' object but attributes were passed with no id.
+
+It is invalid to create a new '#{@relation}' relation when one already exists, as it would leave orphaned records. Update the existing record instead.
+      STR
+    end
+  end
+
   class Helper
     def self.has_delete_flag?(hash)
       has_key?(hash, :_delete)
@@ -83,14 +98,12 @@ module NestedAttributeReassignable
             self.send(association_name).build(non_id_attributes)
           end
         else
-
           if attributes[:id]
             if Helper.has_destroy_flag?(attributes)
               self.send(association_name).mark_for_destruction
             elsif Helper.has_delete_flag?(attributes)
               send("#{association_name}=", nil)
             elsif existing_record = association_klass.find_by(lookup_key => attributes[:id])
-
               self.send("#{association_name}=", existing_record)
 
               nested_attributes = attributes.select { |k,v| k.to_s.include?('_attributes') }.dup
@@ -99,7 +112,12 @@ module NestedAttributeReassignable
               raise_nested_attributes_record_not_found!(association_name, attributes[:id])
             end
           else
-            super(attributes)
+            reflection  = self.class._reflect_on_association(association_name)
+            if reflection.has_one? and send(association_name).present?
+              raise RelationExists.new(self, association_name)
+            else
+              super(attributes)
+            end
           end
         end
       end
