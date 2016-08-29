@@ -302,6 +302,29 @@ describe NestedAttributeReassignable do
       end
     end
 
+    context 'when updating an existing recordset' do
+      let!(:person) do
+        person = Person.create!(name: 'joe')
+        person.pets.create!(name: 'doggy')
+        person.reload
+        person
+      end
+
+      # This is so the #update action can sideload (include) only the
+      # records that were sent as part of the update's nested relations
+      it 'should memoize the recordset as only the records updated' do
+        person.update_attributes! pets_attributes: [
+          { name: 'catty' }
+        ]
+        expect(person.pets.length).to eq(1)
+        expect(person.pets[0].name).to eq('catty')
+        person.reload
+        expect(person.pets.length).to eq(2)
+        expect(person.pets[0].name).to eq('doggy')
+        expect(person.pets[1].name).to eq('catty')
+      end
+    end
+
     # Don't require the API request to send 10,000 comment ids, just the new comment ids
     context 'when passing a subset of all ids' do
       it 'should append to the association array, not replace it' do
