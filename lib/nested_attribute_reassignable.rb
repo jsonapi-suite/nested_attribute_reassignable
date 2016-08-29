@@ -92,11 +92,12 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
               raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
             end
           end
-          self.send("#{association_name}=", (self.send(association_name) | children))
+          self.send(association_name).concat(*children)
           non_id_attribute_sets = attributes.reject { |a| a.has_key?(:id) }
           non_id_attribute_sets.each do |non_id_attributes|
             self.send(association_name).build(non_id_attributes)
           end
+          self.association(association_name).loaded!
         else
           if attributes[:id]
             if Helper.has_destroy_flag?(attributes)
