@@ -206,36 +206,46 @@ describe NestedAttributeReassignable do
       context 'but the record DOES already have a relation' do
         it 'should raise an error' do
           p = Person.create!(family_attributes: { name: 'Partridge' })
+          original_family_id = p.family.id
           p.reload
           expect {
             p.update_attributes!(family_attributes: { name: 'Adams' })
           }.to_not raise_error(NestedAttributeReassignable::RelationExists)
+          p.reload
+          expect(p.family_id).to_not eq(original_family_id)
+          expect(p.family_id).to_not be_nil
+          expect(p.family.name).to eq('Adams')
         end
       end
     end
 
     context 'when passing id AND attributes' do
-      it 'should drop the attributes, not update the relation' do
+      it 'should update the attributes of the given relation' do
         family = Family.create!(name: 'Jetson')
         p = Person.create!(family_attributes: { id: family.id, name: 'Partridge' })
         family = p.reload.family
         expect(family.id).to eq(family.id)
-        expect(family.name).to eq('Jetson')
+        expect(family.name).to eq('Partridge')
       end
 
       context 'when the attributes are for another association' do
-        it 'should still assign that association' do
-          family = Family.create!(name: 'Jetson')
-          p = Person.create!(family_attributes: {
-            id: family.id,
-            name: 'Partridge',
-            sigil_attributes: {
-            name: 'tree'
-          }
-          })
+        it 'should assign the other association and update its attributes' do
+          family = Family.create!(name: 'Jetson', sigil: Sigil.create!(name: 'fox'))
+          original_family = Family.create!(name: 'old')
+          p = Person.create!(family: original_family)
+
+          expect {
+            p.update_attributes!(family_attributes: {
+              id: family.id,
+              name: 'Partridge',
+              sigil_attributes: {
+                name: 'tree'
+              }
+            })
+          }.to change { p.reload.family }.from(original_family).to(family)
           family = p.reload.family
           expect(family.id).to eq(family.id)
-          expect(family.name).to eq('Jetson')
+          expect(family.name).to eq('Partridge')
           expect(family.sigil.name).to eq('tree')
         end
       end
@@ -286,7 +296,7 @@ describe NestedAttributeReassignable do
     context 'when passing non existent id' do
       it 'should raise record not found exception' do
         pets = [Pet.create!, Pet.create!]
-        expect { 
+        expect {
           Person.create!(pets_attributes: [{ id: 23 }, { id: pets.last.id }])
         }.to raise_error(ActiveRecord::RecordNotFound)
       end
@@ -304,29 +314,35 @@ describe NestedAttributeReassignable do
     end
 
     context 'when passing id and attributes in the same record' do
-      it 'should associate, not update the record' do
+      it 'should update the associated record' do
         pet = Pet.create!(name: 'original')
         p = Person.create!(pets_attributes: [{ id: pet.id, name: 'newname' }])
         created = p.reload.pets.first
         expect(created.id).to eq(pet.id)
-        expect(created.name).to eq('original')
+        expect(created.name).to eq('newname')
       end
 
       context 'and the attributes are for another association' do
-        it 'should still handle the other association' do
-          pet = Pet.create!(name: 'original')
-          p = Person.create!(pets_attributes: [
-                             {
-            id: pet.id,
-            name: 'newname',
-            toys_attributes: [
-              { name: 'ball' }
+        it 'should add the record to the association array and update its properties' do
+          pet    = Pet.create!(name: 'original')
+          person = Person.create!(name: 'newname', pets: [pet])
+          pet2   = Pet.create!(name: 'newpet')
+
+          person.update_attributes! pets_attributes: [
+            {
+              id: pet2.id,
+              name: 'newname',
+              toys_attributes: [
+                { name: 'ball' }
+              ]
+            }
           ]
-          }
-          ])
-          created = p.reload.pets.first
-          expect(created.id).to eq(pet.id)
-          expect(created.name).to eq('original')
+          person.reload
+
+          expect(person.pets.length).to eq(2)
+          created = person.pets.last
+          expect(created.id).to eq(pet2.id)
+          expect(created.name).to eq('newname')
           expect(created.toys.first.name).to eq('ball')
         end
       end
@@ -335,7 +351,7 @@ describe NestedAttributeReassignable do
     context 'when passing id in one record, attributes in another' do
       it 'should associate the id record, create the other' do
         existing = Pet.create!(name: 'original')
-        p = Person.create!(pets_attributes: [{ id: existing.id}, { name: 'spot' }])
+        p = Person.create!(pets_attributes: [{ id: existing.id }, { name: 'spot' }])
         created = p.reload.pets
         expect(created.map(&:id)).to include(existing.id)
         expect(created.map(&:name)).to match_array(%w(original spot))

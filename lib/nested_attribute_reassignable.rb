@@ -73,7 +73,7 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
           id_attribute_sets.each do |id_attributes|
             if existing_record = children.find { |c| c.send(lookup_key).to_s == id_attributes[:id].to_s }
               if Helper.has_destroy_flag?(id_attributes)
-                if record = send(association_name).find { |c| c.id.to_s == existing_record.id.to_s } 
+                if record = send(association_name).find { |c| c.id.to_s == existing_record.id.to_s }
                   record.mark_for_destruction
                 else
                   raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
@@ -85,8 +85,8 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
                   raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
                 end
               else
-                nested_attributes = id_attributes.select { |k,v| k.to_s.include?('_attributes') }
-                existing_record.assign_attributes(nested_attributes)
+                id_attributes[lookup_key] = id_attributes[:id]
+                existing_record.assign_attributes(id_attributes.except(:id))
               end
             else
               raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
@@ -104,10 +104,9 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
             elsif Helper.has_delete_flag?(attributes)
               send("#{association_name}=", nil)
             elsif existing_record = association_klass.find_by(lookup_key => attributes[:id])
+              attributes[lookup_key] = attributes.delete(:id)
+              existing_record.assign_attributes(attributes)
               self.send("#{association_name}=", existing_record)
-
-              nested_attributes = attributes.select { |k,v| k.to_s.include?('_attributes') }.dup
-              existing_record.assign_attributes(nested_attributes)
             else
               raise_nested_attributes_record_not_found!(association_name, attributes[:id])
             end
