@@ -277,6 +277,7 @@ describe NestedAttributeReassignable do
   end
 
   context 'when has_many' do
+
     context 'when passing only id' do
       it 'should associate the existing objects' do
         pets = [Pet.create!, Pet.create!]
@@ -303,25 +304,38 @@ describe NestedAttributeReassignable do
     end
 
     context 'when updating an existing recordset' do
+      let(:pet) { Pet.create!(name: 'doggy') }
+      let(:pet_to_delete) { Pet.create!(name: 'delme') }
+      let(:pet_to_destroy) { Pet.create!(name: 'destroyme') }
+      let(:pet_to_associate) { Pet.create!(name: 'associateme') }
+
       let!(:person) do
-        person = Person.create!(name: 'joe')
-        person.pets.create!(name: 'doggy')
+        person = Person.new(name: 'joe')
+        person.pets = [pet, pet_to_delete, pet_to_destroy]
+        person.save!
         person.reload
         person
       end
 
       # This is so the #update action can sideload (include) only the
       # records that were sent as part of the update's nested relations
-      it 'should memoize the recordset as only the records updated' do
-        person.update_attributes! pets_attributes: [
-          { name: 'catty' }
-        ]
-        expect(person.pets.length).to eq(1)
-        expect(person.pets[0].name).to eq('catty')
+      it 'should memoize the recordset as only the records updated, excluding deletions' do
+        expect(person.pets.length).to eq(3)
         person.reload
+        person.update_attributes! pets_attributes: [
+          { name: 'catty' },
+          { id: pet_to_associate.id },
+          { id: pet_to_delete.id, _delete: true },
+          { id: pet_to_destroy.id, _destroy: true },
+        ]
         expect(person.pets.length).to eq(2)
-        expect(person.pets[0].name).to eq('doggy')
+        expect(person.pets[0].name).to eq('associateme')
         expect(person.pets[1].name).to eq('catty')
+        person.reload
+        expect(person.pets.length).to eq(3)
+        expect(person.pets[0].name).to eq('doggy')
+        expect(person.pets[1].name).to eq('associateme')
+        expect(person.pets[2].name).to eq('catty')
       end
     end
 
