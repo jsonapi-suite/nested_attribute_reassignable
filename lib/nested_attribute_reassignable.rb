@@ -43,11 +43,6 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
 
   extend ActiveSupport::Concern
 
-  included do
-    class_attribute :reassignable_nested_attributes_options, instance_writer: false
-    self.reassignable_nested_attributes_options = {}
-  end
-
   # Yes, this could use refactoring love, I do not
   # have time right now D:
   # Just go by the tests.
@@ -55,44 +50,54 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
     def reassignable_nested_attributes_for(association_name, *args)
       options = args.extract_options!.symbolize_keys
       options.update({ :allow_destroy => true })
-      lookup_key = options.delete(:lookup_key) || :id
-      self.reassignable_nested_attributes_options[association_name] = { lookup_key: lookup_key }
 
-      accepts_nested_attributes_for(association_name, options)
+      accepts_nested_attributes_for(association_name, options.except(:lookup_key))
 
       define_method "#{association_name}_attributes=" do |attributes|
         reflection_klass  = self.class._reflect_on_association(association_name)
         association_klass = reflection_klass.klass
+        association       = association(association_name)
+        lookup_key        = options[:lookup_key] || association.klass.primary_key
 
         Helper.symbolize_keys!(attributes)
 
         if attributes.is_a?(Array)
           id_attribute_sets = attributes.select { |a| a.has_key?(:id) }
-          children = association_klass.where(lookup_key => attributes.map { |a| a[:id] }).to_a
+
+          ids = attributes.map { |a| a[:id] }
+          children = association_klass.where(lookup_key => ids)
+
+          # If we're deleting or destroying, we want to validate the record in question
+          # is actually part of this relationship
+          if id_attribute_sets.any? { |set| Helper.has_destroy_flag?(set) || Helper.has_delete_flag?(set) }
+            existing_associated = association.scope.where(lookup_key => ids)
+          end
 
           id_attribute_sets.each do |id_attributes|
             if existing_record = children.find { |c| c.send(lookup_key).to_s == id_attributes[:id].to_s }
               if Helper.has_destroy_flag?(id_attributes)
-                if record = send(association_name).find { |c| c.id.to_s == existing_record.id.to_s }
+                if record = existing_associated.find { |e| e.send(lookup_key).to_s == id_attributes[:id].to_s }
                   record.mark_for_destruction
+                  association.add_to_target(record, :skip_callbacks)
                 else
                   raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
                 end
               elsif Helper.has_delete_flag?(id_attributes)
-                if record = send(association_name).find { |c| c.id.to_s == existing_record.id.to_s }
-                  reflection_klass.through_reflection ? record.mark_for_destruction : send(association_name).delete(record)
+                if record = existing_associated.find { |e| e.send(lookup_key).to_s == id_attributes[:id].to_s }
+                  association.add_to_target(record, :skip_callbacks)
+                  send(association_name).delete(record)
                 else
                   raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
                 end
               else
                 id_attributes[lookup_key] = id_attributes[:id]
                 existing_record.assign_attributes(id_attributes.except(:id))
+                self.send(association_name).concat(existing_record)
               end
             else
               raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
             end
           end
-          self.send(association_name).concat(*children)
           non_id_attribute_sets = attributes.reject { |a| a.has_key?(:id) }
           non_id_attribute_sets.each do |non_id_attributes|
             self.send(association_name).build(non_id_attributes)
