@@ -19,15 +19,20 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
 
   class Helper
     def self.has_delete_flag?(hash)
-      has_key?(hash, :_delete)
+      truthy?(hash, :_delete)
     end
 
     def self.has_destroy_flag?(hash)
-      has_key?(hash, :_destroy)
+      truthy?(hash, :_destroy)
     end
 
-    def self.has_key?(hash, key)
-      ActiveRecord::Type::Boolean.new.cast(hash[key])
+    def self.truthy?(hash, key)
+      if defined?(Rails) && Rails::VERSION::MAJOR == 5
+        ActiveRecord::Type::Boolean.new.cast(hash[key])
+      else
+        value = hash[key]
+        [true, 1, '1', 'true'].include?(value)
+      end
     end
 
     def self.symbolize_keys!(attributes)

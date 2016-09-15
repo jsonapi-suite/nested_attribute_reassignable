@@ -102,3 +102,14 @@ Service.all #=> [rent, mobile] won't delete Service, only the join record
 Normal `accepts_nested_attributes_for` accepts a `_destroy` parameter
 for destroying the association. This will destroy the underlying record.
 If you only want to disassociate the record, you can now use `_delete`.
+
+### Running the tests
+
+This library uses [appraisal](https://github.com/thoughtbot/appraisal) to test against activerecord >= 4.1. Run
+
+```bash
+$ bin/appraisal activerecord-4 rspec
+$ bin/appraisal activerecord-5 rspec
+```
+
+Or `bin/appraisal rspec` to run against all versions.
