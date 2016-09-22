@@ -1,5 +1,7 @@
 # NestedAttributeReassignable
 
+[![Build Status](https://travis-ci.org/jsonapi-suite/nested_attribute_reassignable.svg?branch=master)](https://travis-ci.org/jsonapi-suite/nested_attribute_reassignable)
+
 Normal `accepts_nested_attributes_for` works find when all objects being
 created are unpersisted. But if the base object is unpersisted and being
 associated to pre-existing records, it will blow up:
