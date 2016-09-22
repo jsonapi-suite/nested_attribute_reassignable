@@ -64,7 +64,7 @@ mobile  = Service.create!(name: 'Mobile')
 cat     = Pet.create!(name: 'Cat')
 
 person = Person.create({
-  name: 'Joe', 
+  name: 'Joe',
   services_attributes: [{ id: rent.name }]),
   pets_attributes: [{ id: cat.name }])
 }
