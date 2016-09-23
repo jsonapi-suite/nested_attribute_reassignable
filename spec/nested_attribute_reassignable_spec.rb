@@ -187,11 +187,28 @@ describe NestedAttributeReassignable do
       end
     end
 
-    context 'when passing non existing id' do
+    context 'when passing nonexistent id' do
       it 'should raise record not found exception' do
         expect {
           Person.create!(family_attributes: { id: 23 })
         }.to raise_error(ActiveRecord::RecordNotFound)
+      end
+
+      context 'and nonexistent_id option is :create' do
+        let(:klass) do
+          Class.new(Person) do
+            reassignable_nested_attributes_for :family,
+              nonexistent_id: :create
+          end
+        end
+
+        it 'should create the record with the given id' do
+          expect {
+            klass.create!(family_attributes: { id: 23 })
+          }.to change { Family.count }.by(1)
+          family = Family.last
+          expect(family.id).to eq(23)
+        end
       end
     end
 
@@ -210,7 +227,7 @@ describe NestedAttributeReassignable do
           p.reload
           expect {
             p.update_attributes!(family_attributes: { name: 'Adams' })
-          }.to_not raise_error(NestedAttributeReassignable::RelationExists)
+          }.to_not raise_error
           p.reload
           expect(p.family_id).to_not eq(original_family_id)
           expect(p.family_id).to_not be_nil
@@ -294,12 +311,32 @@ describe NestedAttributeReassignable do
       end
     end
 
-    context 'when passing non existent id' do
+    context 'when passing nonexistent id' do
       it 'should raise record not found exception' do
         pets = [Pet.create!, Pet.create!]
         expect {
           Person.create!(pets_attributes: [{ id: 23 }, { id: pets.last.id }])
         }.to raise_error(ActiveRecord::RecordNotFound)
+      end
+
+      context 'and nonexistent_id option is :create' do
+        let(:klass) do
+          Class.new(Person) do
+            reassignable_nested_attributes_for :pets,
+              nonexistent_id: :create
+          end
+        end
+
+        it 'creates the record with the corresponding id' do
+          pets = [Pet.create!, Pet.create!]
+          expect {
+            klass.create!(pets_attributes: [{ id: 23 }, { id: pets.last.id }])
+          }.to change { Pet.count }.by(1)
+          person = Person.last
+          expect(person.pets.length).to eq(2)
+          expect(person.pets[0].id).to eq(pets.last.id)
+          expect(person.pets[1].id).to eq(23)
+        end
       end
     end
 

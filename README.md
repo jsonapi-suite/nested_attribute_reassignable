@@ -105,6 +105,20 @@ Normal `accepts_nested_attributes_for` accepts a `_destroy` parameter
 for destroying the association. This will destroy the underlying record.
 If you only want to disassociate the record, you can now use `_delete`.
 
+### nonexistent_id
+
+If an `id` or `lookup_key` is passed, and a record with this identifier
+does not exist, this library will raise an error by default.
+
+You may not want this behavior, for instance if your API is accepting
+client-generated IDs on POSTs to `create`. In this scenario:
+
+```ruby
+belongs_to :thing, nonexistent_id: :create
+```
+
+Instead of raising, this will create a record with the given ID.
+
 ### Running the tests
 
 This library uses [appraisal](https://github.com/thoughtbot/appraisal) to test against activerecord >= 4.1. Run

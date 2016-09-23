@@ -55,6 +55,7 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
     def reassignable_nested_attributes_for(association_name, *args)
       options = args.extract_options!.symbolize_keys
       options.update({ :allow_destroy => true })
+      nonexistent_id = options.delete(:nonexistent_id) || :raise
 
       accepts_nested_attributes_for(association_name, options.except(:lookup_key))
 
@@ -100,7 +101,12 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
                 self.send(association_name).concat(existing_record)
               end
             else
-              raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
+              if nonexistent_id == :create
+                new_record = association_klass.new(lookup_key => id_attributes[:id])
+                self.send(association_name).concat(new_record)
+              else
+                raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
+              end
             end
           end
           non_id_attribute_sets = attributes.reject { |a| a.has_key?(:id) }
@@ -119,7 +125,12 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
               existing_record.assign_attributes(attributes)
               self.send("#{association_name}=", existing_record)
             else
-              raise_nested_attributes_record_not_found!(association_name, attributes[:id])
+              if nonexistent_id == :create
+                new_record = association_klass.new(lookup_key => attributes[:id])
+                self.send("#{association_name}=", new_record)
+              else
+                raise_nested_attributes_record_not_found!(association_name, attributes[:id])
+              end
             end
           else
             reflection  = self.class._reflect_on_association(association_name)
