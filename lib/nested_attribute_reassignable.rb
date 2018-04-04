@@ -73,32 +73,35 @@ It is invalid to create a new '#{@relation}' relation when one already exists, a
           ids = attributes.map { |a| a[:id] }
           children = association_klass.where(lookup_key => ids)
 
-          # If we're deleting or destroying, we want to validate the record in question
-          # is actually part of this relationship
-          if id_attribute_sets.any? { |set| Helper.has_destroy_flag?(set) || Helper.has_delete_flag?(set) }
-            existing_associated = association.scope.where(lookup_key => ids)
-          end
+          # If we're deleting or destroying, we want to validate the record in question is actually part of
+          # this relationship. If we're updating a many-to-many relation, we dont want to create duplicate join-table records.
+          existing_associated = association.scope.where(lookup_key => ids)
 
           id_attribute_sets.each do |id_attributes|
             if existing_record = children.find { |c| c.send(lookup_key).to_s == id_attributes[:id].to_s }
+              existing_associated_record = existing_associated.find { |e| e.send(lookup_key).to_s == id_attributes[:id].to_s }
               if Helper.has_destroy_flag?(id_attributes)
-                if record = existing_associated.find { |e| e.send(lookup_key).to_s == id_attributes[:id].to_s }
-                  record.mark_for_destruction
-                  association.add_to_target(record, :skip_callbacks)
+                if existing_associated_record
+                  existing_associated_record.mark_for_destruction
+                  association.add_to_target(existing_associated_record, :skip_callbacks)
                 else
                   raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
                 end
               elsif Helper.has_delete_flag?(id_attributes)
-                if record = existing_associated.find { |e| e.send(lookup_key).to_s == id_attributes[:id].to_s }
-                  association.add_to_target(record, :skip_callbacks)
-                  send(association_name).delete(record)
+                if existing_associated_record
+                  association.add_to_target(existing_associated_record, :skip_callbacks)
+                  send(association_name).delete(existing_associated_record)
                 else
                   raise_nested_attributes_record_not_found!(association_name, id_attributes[:id])
                 end
               else
                 id_attributes[lookup_key] = id_attributes[:id]
-                existing_record.assign_attributes(id_attributes.except(:id))
-                self.send(association_name).concat(existing_record)
+                if existing_associated_record
+                  self.send(association_name).find { |e| e.send(lookup_key).to_s == id_attributes[:id].to_s }.assign_attributes(id_attributes.except(:id))
+                else
+                  existing_record.assign_attributes(id_attributes.except(:id))
+                  self.send(association_name).concat(existing_record)
+                end
               end
             else
               if nonexistent_id == :create

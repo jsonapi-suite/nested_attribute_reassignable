@@ -495,4 +495,36 @@ describe NestedAttributeReassignable do
       end
     end
   end
+
+  context 'when has_and_belongs_to_many' do
+    let!(:math) { Clique.create!(name: 'math club') }
+    let!(:chess) { Clique.create!(name: 'chess club') }
+
+    context 'on create' do
+      it 'should create associations' do
+        p = Person.create!(cliques_attributes: [{ id: math.id }, { id: chess.id }])
+        expect(p.reload.cliques).to eq([math, chess])
+      end
+    end
+
+    context 'on update' do
+      let!(:instance) { Person.create!(cliques_attributes: [{ id: math.id }]) }
+
+      it 'should add records to the association' do
+        instance.update_attributes(cliques_attributes: [{ id: chess.id }])
+        expect(instance.reload.cliques).to eq([math, chess])
+      end
+
+      it 'should update the associated record' do
+        instance.update(cliques_attributes: [{ id: math.id, name: 'math clan' }])
+        expect(math.reload.name).to eq('math clan')
+      end
+
+      it 'should not create duplicate join-table records' do
+        expect(instance.cliques.count).to eq(1)
+        instance.update(cliques_attributes: [{ id: math.id, name: 'math clan' }])
+        expect(instance.cliques.count).to eq(1)
+      end
+    end
+  end
 end
