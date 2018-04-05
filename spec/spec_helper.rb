@@ -37,7 +37,13 @@ ActiveRecord::Schema.define(:version => 1) do
     t.string :name
   end
 
-  create_table :pets do |t|
+  create_table :cliques do |t|
+    t.string :name
+  end
+
+  create_join_table :people, :cliques
+
+  create_table :pets do |t|1
     t.belongs_to :person, index: true
     t.string :name
   end
@@ -71,6 +77,7 @@ class Person < ApplicationRecord
   has_many :pets
   has_one :office
   belongs_to :family
+  has_and_belongs_to_many :cliques
 
   has_many :bills
   has_many :services, through: :bills, dependent: :destroy
@@ -78,8 +85,13 @@ class Person < ApplicationRecord
   reassignable_nested_attributes_for :pets
   reassignable_nested_attributes_for :office
   reassignable_nested_attributes_for :family
+  reassignable_nested_attributes_for :cliques
 
   reassignable_nested_attributes_for :services, lookup_key: :name
+end
+
+class Clique < ApplicationRecord
+  has_and_belongs_to_many :people
 end
 
 class SpecialPerson < ApplicationRecord
